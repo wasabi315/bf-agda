@@ -75,12 +75,8 @@ notLoop? `· = yes `·
 notLoop? `, = yes `,
 notLoop? `[ _ ] = no λ ()
 
-NoLoops : Cmds → Set
-NoLoops = All NotLoop
-
-noLoops? : ∀ cs → Dec (NoLoops cs)
-noLoops? = all? notLoop?
-
+-- Works for both Cmds and NoLoops
+pattern □ = []
 pattern >_ xs = `> ∷ xs
 pattern <_ xs = `< ∷ xs
 pattern +_ xs = `+ ∷ xs
@@ -88,7 +84,6 @@ pattern -_ xs = `- ∷ xs
 pattern ·_ xs = `· ∷ xs
 pattern ,_ xs = `, ∷ xs
 pattern [_]_ xs ys = `[ xs ] ∷ ys
-pattern □ = []
 
 --------------------------------------------------------------------------------
 -- The state of the machine
@@ -147,11 +142,6 @@ private
 ⟦ `· ⟧ = putCh
 ⟦ `, ⟧ = getCh
 
-⟦_⟧! : ∀ c → {{_ : True (notLoop? c)}} → State → State
-⟦ _ ⟧! {{nl}} = ⟦ toWitness nl ⟧
-
-infix 0 ⟨_,_⟩⇒⟨_,_⟩ ⟨_,_⟩⇒*⟨_,_⟩
-
 data ⟨_,_⟩⇒⟨_,_⟩ : Cmds → State → Cmds → State → Set where
   ⇒incPtr : ⟨ > cs , s ⟩⇒⟨ cs , ⟦ `> ⟧ s ⟩
   ⇒decPtr : ⟨ < cs , s ⟩⇒⟨ cs , ⟦ `< ⟧ s ⟩
@@ -176,26 +166,8 @@ data ⟨_,_⟩⇒*⟨_,_⟩ : Cmds → State → Cmds → State → Set where
 from≡ₛ : s ≡ s₁ → ⟨ cs , s ⟩⇒*⟨ cs , s₁ ⟩
 from≡ₛ eq = subst ⟨ _ , _ ⟩⇒*⟨ _ ,_⟩ eq []
 
-⟦_⟧* : NoLoops cs → State → State
-⟦ [] ⟧* = idfun _
-⟦ nl ∷ nls ⟧* = ⟦ nls ⟧* ∘ ⟦ nl ⟧
-
-⟦_⟧!* : ∀ cs → {{_ : True (noLoops? cs)}} → State → State
-⟦ _ ⟧!* {{nls}} = ⟦ toWitness nls ⟧*
-
-stepsNoLoops : (nls : NoLoops cs) → ⟨ cs ++ cs₁ , s ⟩⇒*⟨ cs₁ , ⟦ nls ⟧* s ⟩
-stepsNoLoops [] = []
-stepsNoLoops (> nls) = ⇒incPtr ∷ stepsNoLoops nls
-stepsNoLoops (< nls) = ⇒decPtr ∷ stepsNoLoops nls
-stepsNoLoops (+ nls) = ⇒incVal ∷ stepsNoLoops nls
-stepsNoLoops (- nls) = ⇒decVal ∷ stepsNoLoops nls
-stepsNoLoops (· nls) = ⇒putCh ∷ stepsNoLoops nls
-stepsNoLoops (, nls) = ⇒getCh ∷ stepsNoLoops nls
-
-stepsNoLoops! : ∀ cs
-  → {{_ : True (noLoops? cs)}}
-  → ⟨ cs ++ cs₁ , s ⟩⇒*⟨ cs₁ , ⟦ cs ⟧!* s ⟩
-stepsNoLoops! _ {{nls}} = stepsNoLoops (toWitness nls)
+_=⟦_⟧⇒*_ : State → Cmds → State → Set
+s =⟦ cs ⟧⇒* s₁ = ⟨ cs , s ⟩⇒*⟨ [] , s₁ ⟩
 
 --------------------------------------------------------------------------------
 -- Convenient mixfix operators for reasoning
@@ -230,6 +202,62 @@ module ⇒-Reasoning where
 
   _,_∎ : ∀ cs s → ⟨ cs , s ⟩⇒*⟨ cs , s ⟩
   cs , s ∎ = []
+
+--------------------------------------------------------------------------------
+-- Determinism
+
+⇒*-deterministic :
+    s =⟦ cs ⟧⇒* s₁
+  → s =⟦ cs ⟧⇒* s₂
+  → s₁ ≡ s₂
+⇒*-deterministic [] [] = refl
+⇒*-deterministic (⇒incPtr ∷ ss) (⇒incPtr ∷ ss') = ⇒*-deterministic ss ss'
+⇒*-deterministic (⇒decPtr ∷ ss) (⇒decPtr ∷ ss') = ⇒*-deterministic ss ss'
+⇒*-deterministic (⇒incVal ∷ ss) (⇒incVal ∷ ss') = ⇒*-deterministic ss ss'
+⇒*-deterministic (⇒decVal ∷ ss) (⇒decVal ∷ ss') = ⇒*-deterministic ss ss'
+⇒*-deterministic (⇒putCh ∷ ss) (⇒putCh ∷ ss') = ⇒*-deterministic ss ss'
+⇒*-deterministic (⇒getCh ∷ ss) (⇒getCh ∷ ss') = ⇒*-deterministic ss ss'
+⇒*-deterministic (⇒loopZ p ∷ ss) (⇒loopZ q ∷ ss') = ⇒*-deterministic ss ss'
+⇒*-deterministic (⇒loopZ p ∷ ss) (⇒loopS q ∷ ss') = exFalso (q p)
+⇒*-deterministic (⇒loopS p ∷ ss) (⇒loopZ q ∷ ss') = exFalso (p q)
+⇒*-deterministic (⇒loopS p ∷ ss) (⇒loopS q ∷ ss') = ⇒*-deterministic ss ss'
+
+--------------------------------------------------------------------------------
+-- Infinite Loop
+
+inf-loop : ¬ current s ≡ 0 → ¬ s =⟦ [ □ ] □ ⟧⇒* s₁
+inf-loop p (⇒loopZ q ∷ ss) = exFalso (p q)
+inf-loop p (⇒loopS q ∷ ss) = inf-loop q ss
+
+--------------------------------------------------------------------------------
+-- No Loops
+
+NoLoops : Cmds → Set
+NoLoops = All NotLoop
+
+noLoops? : ∀ cs → Dec (NoLoops cs)
+noLoops? = all? notLoop?
+
+⟦_⟧* : NoLoops cs → State → State
+⟦ [] ⟧* = idfun _
+⟦ nl ∷ nls ⟧* = ⟦ nls ⟧* ∘ ⟦ nl ⟧
+
+⟦_⟧*! : ∀ cs → {{_ : True (noLoops? cs)}} → State → State
+⟦ _ ⟧*! {{nls}} = ⟦ toWitness nls ⟧*
+
+stepsNoLoops : (nls : NoLoops cs) → ⟨ cs ++ cs₁ , s ⟩⇒*⟨ cs₁ , ⟦ nls ⟧* s ⟩
+stepsNoLoops [] = []
+stepsNoLoops (> nls) = ⇒incPtr ∷ stepsNoLoops nls
+stepsNoLoops (< nls) = ⇒decPtr ∷ stepsNoLoops nls
+stepsNoLoops (+ nls) = ⇒incVal ∷ stepsNoLoops nls
+stepsNoLoops (- nls) = ⇒decVal ∷ stepsNoLoops nls
+stepsNoLoops (· nls) = ⇒putCh ∷ stepsNoLoops nls
+stepsNoLoops (, nls) = ⇒getCh ∷ stepsNoLoops nls
+
+stepsNoLoops! : ∀ cs
+  → {{_ : True (noLoops? cs)}}
+  → ⟨ cs ++ cs₁ , s ⟩⇒*⟨ cs₁ , ⟦ cs ⟧*! s ⟩
+stepsNoLoops! _ {{nls}} = stepsNoLoops (toWitness nls)
 
 --------------------------------------------------------------------------------
 -- Reasoning
@@ -326,7 +354,7 @@ decomp-moveRN {s} i = record (moveRN 1 s)
 ⇒[->+<] {s = s} =
   begin
     [ - > + < □ ] _ , s
-  ⇒*⟨ loop ≤-refl ⟩
+  ⇒*⟨ helper ≤-refl ⟩
     [ - > + < □ ] _ , moveRN (current s) s
   ≡ₛ⟨ moveRNcurrent ⟩
     [ - > + < □ ] _ , moveR s
@@ -336,18 +364,18 @@ decomp-moveRN {s} i = record (moveRN 1 s)
   where
     open ⇒-Reasoning
 
-    loop : ∀ {s m}
+    helper : ∀ {s m}
       → m ≤ current s
       → ⟨ [ - > + < □ ] cs , s ⟩⇒*⟨ [ - > + < □ ] cs , moveRN m s ⟩
-    loop {s = s} {.zero} z≤n = from≡ₛ (sym moveRN0)
-    loop {s = s} {suc m} (s≤s m≤n) =
+    helper {s = s} {.zero} z≤n = from≡ₛ (sym moveRN0)
+    helper {s = s} {suc m} (s≤s m≤n) =
       begin
         [ - > + < □ ] _ , s
       ⇒⟨ ⇒loopS snotz ⟩
         - > + < [ - > + < □ ] _ , s
       ⇒*⟨ ⇒->+< ⟩
         [ - > + < □ ] _ , moveRN 1 s
-      ⇒*⟨ loop m≤n ⟩
+      ⇒*⟨ helper m≤n ⟩
         [ - > + < □ ] _ , (moveRN m ∘ moveRN 1) s
       ≡ₛ⟨ +-moveRN {s} ⟩
         [ - > + < □ ] _ , moveRN (1 + m) s
