@@ -689,6 +689,25 @@ mutual
     (λ k l → -⟨ n ⟩ trunc cs cs₁ p q k l)
     i j
 
+helloWorld′ : Opts
+helloWorld′ = optimize (transport Cmds≡Opts helloWorld)
+
+_ : helloWorld′ ≡
+    +⟨ 1+ 71 ⟩ ·    -- "H"
+    +⟨ 1+ 28 ⟩ ·    -- "e"
+    +⟨ 1+ 6  ⟩ · ·  -- "ll"
+    +⟨ 1+ 2  ⟩ ·    -- "o"
+    -⟨ 1+ 66 ⟩ ·    -- ","
+    -⟨ 1+ 11 ⟩ ·    -- " "
+    +⟨ 1+ 86 ⟩ ·    -- "w"
+    -⟨ 1+ 7  ⟩ ·    -- "o"
+    +⟨ 1+ 2  ⟩ ·    -- "r"
+    -⟨ 1+ 5  ⟩ ·    -- "l"
+    -⟨ 1+ 7  ⟩ ·    -- "d"
+    -⟨ 1+ 66 ⟩ ·    -- "!"
+    □
+_ = refl
+
 --------------------------------------------------------------------------------
 -- Slow semantics: unoptimize before running
 
@@ -738,5 +757,5 @@ noLoops?-filler =
     (λ i → (cs : Cmds≡Opts i) {{_ : True (noLoops?-filler i cs)}} → State → State)
     Cmds.⟦_⟧*!
 
-_ : getOutput (⟦ optimize (transport Cmds≡Opts helloWorld) ⟧*! default) ≡ "Hello, world!"
+_ : getOutput (⟦ helloWorld′ ⟧*! default) ≡ "Hello, world!"
 _ = refl
