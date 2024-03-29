@@ -1,4 +1,4 @@
-{-# OPTIONS --cubical --safe --guardedness #-}
+{-# OPTIONS --cubical --guardedness #-}
 
 module Brainfuck.State where
 

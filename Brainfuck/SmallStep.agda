@@ -1,4 +1,4 @@
-{-# OPTIONS --cubical --guardedness --safe #-}
+{-# OPTIONS --cubical --guardedness #-}
 
 module Brainfuck.SmallStep where
 
@@ -56,22 +56,24 @@ private
 data ⟨_,_⟩⇒⟨_,_⟩ (cs : Cmds) (s : State) (cs₁ : Cmds) (s₁ : State) : Type where
   con : ⟨ cs , s ⟩⇒′⟨ cs₁ , s₁ ⟩ → ⟨ cs , s ⟩⇒⟨ cs₁ , s₁ ⟩
 
-⇒-incPtr : ⟨ > cs , s ⟩⇒⟨ cs , incPtr s ⟩
-⇒-decPtr : ⟨ < cs , s ⟩⇒⟨ cs , decPtr s ⟩
-⇒-incVal : ⟨ + cs , s ⟩⇒⟨ cs , incVal s ⟩
-⇒-decVal : ⟨ - cs , s ⟩⇒⟨ cs , decVal s ⟩
-⇒-putCh : ⟨ · cs , s ⟩⇒⟨ cs , putCh s ⟩
-⇒-getCh : ⟨ , cs , s ⟩⇒⟨ cs , getCh s ⟩
-⇒-loopZ : {{_ : Zero (current s)}} → ⟨ [ cs ] cs₁ , s ⟩⇒⟨ cs₁ , s ⟩
-⇒-loopS : {{_ : NonZero (current s)}} → ⟨ [ cs ] cs₁ , s ⟩⇒⟨ cs ++ [ cs ] cs₁ , s ⟩
-⇒-incPtr = con (refl , refl)
-⇒-decPtr = con (refl , refl)
-⇒-incVal = con (refl , refl)
-⇒-decVal = con (refl , refl)
-⇒-putCh = con (refl , refl)
-⇒-getCh = con (refl , refl)
-⇒-loopZ {s = record { current = zero }} = con (refl , refl)
-⇒-loopS {s = record { current = suc _ }} = con (refl , refl)
+-- just to prevent unfolding
+opaque
+  ⇒-incPtr : ⟨ > cs , s ⟩⇒⟨ cs , incPtr s ⟩
+  ⇒-decPtr : ⟨ < cs , s ⟩⇒⟨ cs , decPtr s ⟩
+  ⇒-incVal : ⟨ + cs , s ⟩⇒⟨ cs , incVal s ⟩
+  ⇒-decVal : ⟨ - cs , s ⟩⇒⟨ cs , decVal s ⟩
+  ⇒-putCh : ⟨ · cs , s ⟩⇒⟨ cs , putCh s ⟩
+  ⇒-getCh : ⟨ , cs , s ⟩⇒⟨ cs , getCh s ⟩
+  ⇒-loopZ : {{_ : Zero (current s)}} → ⟨ [ cs ] cs₁ , s ⟩⇒⟨ cs₁ , s ⟩
+  ⇒-loopS : {{_ : NonZero (current s)}} → ⟨ [ cs ] cs₁ , s ⟩⇒⟨ cs ++ [ cs ] cs₁ , s ⟩
+  ⇒-incPtr = con (refl , refl)
+  ⇒-decPtr = con (refl , refl)
+  ⇒-incVal = con (refl , refl)
+  ⇒-decVal = con (refl , refl)
+  ⇒-putCh = con (refl , refl)
+  ⇒-getCh = con (refl , refl)
+  ⇒-loopZ {s = record { current = zero }} = con (refl , refl)
+  ⇒-loopS {s = record { current = suc _ }} = con (refl , refl)
 
 -- Better ways to define reflexive transitive closure?
 data ⟨_,_⟩⇒*⟨_,_⟩ (cs : Cmds) (s : State) (cs₁ : Cmds) (s₁ : State) : Type where
