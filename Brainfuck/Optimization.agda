@@ -52,10 +52,10 @@ mutual
   data Opts : Type where
     [] : Opts
     _∷_ : (c : Opt) (cs : Opts) → Opts
-    merge-`> : ∀ m n cs → `>⟨ m ⟩ ∷ `>⟨ n ⟩ ∷ cs ≡ `>⟨ m +₁ n ⟩ ∷ cs
-    merge-`< : ∀ m n cs → `<⟨ m ⟩ ∷ `<⟨ n ⟩ ∷ cs ≡ `<⟨ m +₁ n ⟩ ∷ cs
-    merge-`+ : ∀ m n cs → `+⟨ m ⟩ ∷ `+⟨ n ⟩ ∷ cs ≡ `+⟨ m +₁ n ⟩ ∷ cs
-    merge-`- : ∀ m n cs → `-⟨ m ⟩ ∷ `-⟨ n ⟩ ∷ cs ≡ `-⟨ m +₁ n ⟩ ∷ cs
+    merge-addPtr : ∀ m n cs → `>⟨ m ⟩ ∷ `>⟨ n ⟩ ∷ cs ≡ `>⟨ m +₁ n ⟩ ∷ cs
+    merge-subPtr : ∀ m n cs → `<⟨ m ⟩ ∷ `<⟨ n ⟩ ∷ cs ≡ `<⟨ m +₁ n ⟩ ∷ cs
+    merge-addVal : ∀ m n cs → `+⟨ m ⟩ ∷ `+⟨ n ⟩ ∷ cs ≡ `+⟨ m +₁ n ⟩ ∷ cs
+    merge-subVal : ∀ m n cs → `-⟨ m ⟩ ∷ `-⟨ n ⟩ ∷ cs ≡ `-⟨ m +₁ n ⟩ ∷ cs
     trunc : isSet Opts
 
 pattern □ = []
@@ -71,10 +71,10 @@ infixr 5 _+++_
 _+++_ : Opts → Opts → Opts
 □ +++ cs₁ = cs₁
 (c ∷ cs) +++ cs₁ = c ∷ cs +++ cs₁
-merge-`> m n cs i +++ cs₁ = merge-`> m n (cs +++ cs₁) i
-merge-`< m n cs i +++ cs₁ = merge-`< m n (cs +++ cs₁) i
-merge-`+ m n cs i +++ cs₁ = merge-`+ m n (cs +++ cs₁) i
-merge-`- m n cs i +++ cs₁ = merge-`- m n (cs +++ cs₁) i
+merge-addPtr m n cs i +++ cs₁ = merge-addPtr m n (cs +++ cs₁) i
+merge-subPtr m n cs i +++ cs₁ = merge-subPtr m n (cs +++ cs₁) i
+merge-addVal m n cs i +++ cs₁ = merge-addVal m n (cs +++ cs₁) i
+merge-subVal m n cs i +++ cs₁ = merge-subVal m n (cs +++ cs₁) i
 trunc cs cs₁ p q i j +++ cs₂ =
   trunc (cs +++ cs₂) (cs₁ +++ cs₂) (cong (_+++ cs₂) p) (cong (_+++ cs₂) q) i j
 
@@ -89,14 +89,14 @@ module Elim {P : Opts → Type ℓ}
   (·*_ : ∀ {cs} (cs* : P cs) → P (· cs))
   (,*_ : ∀ {cs} (cs* : P cs) → P (, cs))
   ([_]*_ : ∀ {cs} (cs* : P cs) {cs₁} (cs₁* : P cs₁) → P ([ cs ] cs₁))
-  (merge-`>* : ∀ m n {cs} (cs* : P cs)
-    → PathP (λ i → P (merge-`> m n cs i)) (>⟨ m ⟩* >⟨ n ⟩* cs*) (>⟨ m +₁ n ⟩* cs*))
-  (merge-`<* : ∀ m n {cs} (cs* : P cs)
-    → PathP (λ i → P (merge-`< m n cs i)) (<⟨ m ⟩* <⟨ n ⟩* cs*) (<⟨ m +₁ n ⟩* cs*))
-  (merge-`+* : ∀ m n {cs} (cs* : P cs)
-    → PathP (λ i → P (merge-`+ m n cs i)) (+⟨ m ⟩* +⟨ n ⟩* cs*) (+⟨ m +₁ n ⟩* cs*))
-  (merge-`-* : ∀ m n {cs} (cs* : P cs)
-    → PathP (λ i → P (merge-`- m n cs i)) (-⟨ m ⟩* -⟨ n ⟩* cs*) (-⟨ m +₁ n ⟩* cs*))
+  (merge-addPtr* : ∀ m n {cs} (cs* : P cs)
+    → PathP (λ i → P (merge-addPtr m n cs i)) (>⟨ m ⟩* >⟨ n ⟩* cs*) (>⟨ m +₁ n ⟩* cs*))
+  (merge-subPtr* : ∀ m n {cs} (cs* : P cs)
+    → PathP (λ i → P (merge-subPtr m n cs i)) (<⟨ m ⟩* <⟨ n ⟩* cs*) (<⟨ m +₁ n ⟩* cs*))
+  (merge-addVal* : ∀ m n {cs} (cs* : P cs)
+    → PathP (λ i → P (merge-addVal m n cs i)) (+⟨ m ⟩* +⟨ n ⟩* cs*) (+⟨ m +₁ n ⟩* cs*))
+  (merge-subVal* : ∀ m n {cs} (cs* : P cs)
+    → PathP (λ i → P (merge-subVal m n cs i)) (-⟨ m ⟩* -⟨ n ⟩* cs*) (-⟨ m +₁ n ⟩* cs*))
   (trunc* : ∀ cs → isSet (P cs))
   where
 
@@ -109,10 +109,10 @@ module Elim {P : Opts → Type ℓ}
   f (· cs) = ·* f cs
   f (, cs) = ,* f cs
   f ([ cs ] cs₁) = [ f cs ]* f cs₁
-  f (merge-`> m n cs i) = merge-`>* m n (f cs) i
-  f (merge-`< m n cs i) = merge-`<* m n (f cs) i
-  f (merge-`+ m n cs i) = merge-`+* m n (f cs) i
-  f (merge-`- m n cs i) = merge-`-* m n (f cs) i
+  f (merge-addPtr m n cs i) = merge-addPtr* m n (f cs) i
+  f (merge-subPtr m n cs i) = merge-subPtr* m n (f cs) i
+  f (merge-addVal m n cs i) = merge-addVal* m n (f cs) i
+  f (merge-subVal m n cs i) = merge-subVal* m n (f cs) i
   f (trunc cs cs₁ p q i j) = isOfHLevel→isOfHLevelDep 2 trunc*
     (f cs)
     (f cs₁)
@@ -136,19 +136,19 @@ module ElimProp {P : Opts → Type ℓ} (PProp : ∀ {cs} → isProp (P cs))
   f = Elim.f □* >⟨_⟩*_ <⟨_⟩*_ +⟨_⟩*_ -⟨_⟩*_ ·*_ ,*_ [_]*_
     (λ m n {cs} cs* → toPathP
       (PProp
-        (transport (λ i → P (merge-`> m n cs i)) (>⟨ m ⟩* >⟨ n ⟩* cs*))
+        (transport (λ i → P (merge-addPtr m n cs i)) (>⟨ m ⟩* >⟨ n ⟩* cs*))
         (>⟨ m +₁ n ⟩* cs*)))
     (λ m n {cs} cs* → toPathP
       (PProp
-        (transport (λ i → P (merge-`< m n cs i)) (<⟨ m ⟩* <⟨ n ⟩* cs*))
+        (transport (λ i → P (merge-subPtr m n cs i)) (<⟨ m ⟩* <⟨ n ⟩* cs*))
         (<⟨ m +₁ n ⟩* cs*)))
     (λ m n {cs} cs* → toPathP
       (PProp
-        (transport (λ i → P (merge-`+ m n cs i)) (+⟨ m ⟩* +⟨ n ⟩* cs*))
+        (transport (λ i → P (merge-addVal m n cs i)) (+⟨ m ⟩* +⟨ n ⟩* cs*))
         (+⟨ m +₁ n ⟩* cs*)))
     (λ m n {cs} cs* → toPathP
       (PProp
-        (transport (λ i → P (merge-`- m n cs i)) (-⟨ m ⟩* -⟨ n ⟩* cs*))
+        (transport (λ i → P (merge-subVal m n cs i)) (-⟨ m ⟩* -⟨ n ⟩* cs*))
         (-⟨ m +₁ n ⟩* cs*)))
     (λ _ → isProp→isSet PProp)
 
@@ -157,13 +157,13 @@ module Rec (AType : isSet A)
   (>⟨_⟩*_ <⟨_⟩*_ +⟨_⟩*_ -⟨_⟩*_ : ℕ₊₁ → A → A)
   (·*_ ,*_ : A → A)
   ([_]*_ : A → A → A)
-  (merge-`>* : ∀ m n cs*
+  (merge-addPtr* : ∀ m n cs*
     → >⟨ m ⟩* >⟨ n ⟩* cs* ≡ >⟨ m +₁ n ⟩* cs*)
-  (merge-`<* : ∀ m n cs*
+  (merge-subPtr* : ∀ m n cs*
     → <⟨ m ⟩* <⟨ n ⟩* cs* ≡ <⟨ m +₁ n ⟩* cs*)
-  (merge-`+* : ∀ m n cs*
+  (merge-addVal* : ∀ m n cs*
     → +⟨ m ⟩* +⟨ n ⟩* cs* ≡ +⟨ m +₁ n ⟩* cs*)
-  (merge-`-* : ∀ m n cs*
+  (merge-subVal* : ∀ m n cs*
     → -⟨ m ⟩* -⟨ n ⟩* cs* ≡ -⟨ m +₁ n ⟩* cs*)
   where
 
@@ -177,10 +177,10 @@ module Rec (AType : isSet A)
     (λ cs* → ·* cs*)
     (λ cs* → ,* cs*)
     (λ cs* cs₁* → [ cs* ]* cs₁*)
-    (λ m n cs* → merge-`>* m n cs*)
-    (λ m n cs* → merge-`<* m n cs*)
-    (λ m n cs* → merge-`+* m n cs*)
-    (λ m n cs* → merge-`-* m n cs*)
+    (λ m n cs* → merge-addPtr* m n cs*)
+    (λ m n cs* → merge-subPtr* m n cs*)
+    (λ m n cs* → merge-addVal* m n cs*)
+    (λ m n cs* → merge-subVal* m n cs*)
     (const AType)
 
 --------------------------------------------------------------------------------
@@ -234,43 +234,43 @@ Opts→Cmds = Rec.f isSetCmds
       replicate (m +₁ n) `- ++ cs
     ∎)
 
-Cmds→Opts-replicate-`> : ∀ n → Cmds→Opts (replicate n `>) ≡ >⟨ n ⟩ □
-Cmds→Opts-replicate-`> one = refl
-Cmds→Opts-replicate-`> (2+ n) =
+Cmds→Opts-replicate-incPtr : ∀ n → Cmds→Opts (replicate n `>) ≡ >⟨ n ⟩ □
+Cmds→Opts-replicate-incPtr one = refl
+Cmds→Opts-replicate-incPtr (2+ n) =
     >⟨ one ⟩ Cmds→Opts (replicate (1+ n) `>)
-  ≡⟨ cong >⟨ one ⟩_ (Cmds→Opts-replicate-`> (1+ n)) ⟩
+  ≡⟨ cong >⟨ one ⟩_ (Cmds→Opts-replicate-incPtr (1+ n)) ⟩
     >⟨ one ⟩ >⟨ 1+ n ⟩ □
-  ≡⟨ merge-`> one (1+ n) □ ⟩
+  ≡⟨ merge-addPtr one (1+ n) □ ⟩
     >⟨ 2+ n ⟩ □
   ∎
 
-Cmds→Opts-replicate-`< : ∀ n → Cmds→Opts (replicate n `<) ≡ <⟨ n ⟩ □
-Cmds→Opts-replicate-`< one = refl
-Cmds→Opts-replicate-`< (2+ n) =
+Cmds→Opts-replicate-decPtr : ∀ n → Cmds→Opts (replicate n `<) ≡ <⟨ n ⟩ □
+Cmds→Opts-replicate-decPtr one = refl
+Cmds→Opts-replicate-decPtr (2+ n) =
     <⟨ one ⟩ Cmds→Opts (replicate (1+ n) `<)
-  ≡⟨ cong <⟨ one ⟩_ (Cmds→Opts-replicate-`< (1+ n)) ⟩
+  ≡⟨ cong <⟨ one ⟩_ (Cmds→Opts-replicate-decPtr (1+ n)) ⟩
     <⟨ one ⟩ <⟨ 1+ n ⟩ □
-  ≡⟨ merge-`< one (1+ n) □ ⟩
+  ≡⟨ merge-subPtr one (1+ n) □ ⟩
     <⟨ 2+ n ⟩ □
   ∎
 
-Cmds→Opts-replicate-`+ : ∀ n → Cmds→Opts (replicate n `+) ≡ +⟨ n ⟩ □
-Cmds→Opts-replicate-`+ one = refl
-Cmds→Opts-replicate-`+ (2+ n) =
+Cmds→Opts-replicate-incVal : ∀ n → Cmds→Opts (replicate n `+) ≡ +⟨ n ⟩ □
+Cmds→Opts-replicate-incVal one = refl
+Cmds→Opts-replicate-incVal (2+ n) =
     +⟨ one ⟩ Cmds→Opts (replicate (1+ n) `+)
-  ≡⟨ cong +⟨ one ⟩_ (Cmds→Opts-replicate-`+ (1+ n)) ⟩
+  ≡⟨ cong +⟨ one ⟩_ (Cmds→Opts-replicate-incVal (1+ n)) ⟩
     +⟨ one ⟩ +⟨ 1+ n ⟩ □
-  ≡⟨ merge-`+ one (1+ n) □ ⟩
+  ≡⟨ merge-addVal one (1+ n) □ ⟩
     +⟨ 2+ n ⟩ □
   ∎
 
-Cmds→Opts-replicate-`- : ∀ n → Cmds→Opts (replicate n `-) ≡ -⟨ n ⟩ □
-Cmds→Opts-replicate-`- one = refl
-Cmds→Opts-replicate-`- (2+ n) =
+Cmds→Opts-replicate-decVal : ∀ n → Cmds→Opts (replicate n `-) ≡ -⟨ n ⟩ □
+Cmds→Opts-replicate-decVal one = refl
+Cmds→Opts-replicate-decVal (2+ n) =
     -⟨ one ⟩ Cmds→Opts (replicate (1+ n) `-)
-  ≡⟨ cong -⟨ one ⟩_ (Cmds→Opts-replicate-`- (1+ n)) ⟩
+  ≡⟨ cong -⟨ one ⟩_ (Cmds→Opts-replicate-decVal (1+ n)) ⟩
     -⟨ one ⟩ -⟨ 1+ n ⟩ □
-  ≡⟨ merge-`- one (1+ n) □ ⟩
+  ≡⟨ merge-subVal one (1+ n) □ ⟩
     -⟨ 2+ n ⟩ □
   ∎
 
@@ -293,7 +293,7 @@ sect = ElimProp.f (λ {cs} → trunc (Cmds→Opts (Opts→Cmds cs)) cs)
       Cmds→Opts (replicate n `> ++ Opts→Cmds cs)
     ≡⟨ Cmds→Opts-++ (replicate n `>) (Opts→Cmds cs) ⟩
       Cmds→Opts (replicate n `>) +++ Cmds→Opts (Opts→Cmds cs)
-    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-`> n) ⟩
+    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-incPtr n) ⟩
       >⟨ n ⟩ Cmds→Opts (Opts→Cmds cs)
     ≡⟨ cong >⟨ n ⟩_ p ⟩
       >⟨ n ⟩ cs
@@ -304,7 +304,7 @@ sect = ElimProp.f (λ {cs} → trunc (Cmds→Opts (Opts→Cmds cs)) cs)
       Cmds→Opts (replicate n `< ++ Opts→Cmds cs)
     ≡⟨ Cmds→Opts-++ (replicate n `<) (Opts→Cmds cs) ⟩
       Cmds→Opts (replicate n `<) +++ Cmds→Opts (Opts→Cmds cs)
-    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-`< n) ⟩
+    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-decPtr n) ⟩
       <⟨ n ⟩ Cmds→Opts (Opts→Cmds cs)
     ≡⟨ cong <⟨ n ⟩_ p ⟩
       <⟨ n ⟩ cs
@@ -315,7 +315,7 @@ sect = ElimProp.f (λ {cs} → trunc (Cmds→Opts (Opts→Cmds cs)) cs)
       Cmds→Opts (replicate n `+ ++ Opts→Cmds cs)
     ≡⟨ Cmds→Opts-++ (replicate n `+) (Opts→Cmds cs) ⟩
       Cmds→Opts (replicate n `+) +++ Cmds→Opts (Opts→Cmds cs)
-    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-`+ n) ⟩
+    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-incVal n) ⟩
       +⟨ n ⟩ Cmds→Opts (Opts→Cmds cs)
     ≡⟨ cong +⟨ n ⟩_ p ⟩
       +⟨ n ⟩ cs
@@ -326,7 +326,7 @@ sect = ElimProp.f (λ {cs} → trunc (Cmds→Opts (Opts→Cmds cs)) cs)
       Cmds→Opts (replicate n `- ++ Opts→Cmds cs)
     ≡⟨ Cmds→Opts-++ (replicate n `-) (Opts→Cmds cs) ⟩
       Cmds→Opts (replicate n `-) +++ Cmds→Opts (Opts→Cmds cs)
-    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-`- n) ⟩
+    ≡⟨ cong (_+++ Cmds→Opts (Opts→Cmds cs)) (Cmds→Opts-replicate-decVal n) ⟩
       -⟨ n ⟩ Cmds→Opts (Opts→Cmds cs)
     ≡⟨ cong -⟨ n ⟩_ p ⟩
       -⟨ n ⟩ cs
@@ -361,98 +361,98 @@ mutual
 
   optimize : Opts → Opts
   optimize □ = □
-  optimize (>⟨ n ⟩ cs) = optimize-`> n cs
-  optimize (<⟨ n ⟩ cs) = optimize-`< n cs
-  optimize (+⟨ n ⟩ cs) = optimize-`+ n cs
-  optimize (-⟨ n ⟩ cs) = optimize-`- n cs
+  optimize (>⟨ n ⟩ cs) = optimize-addPtr n cs
+  optimize (<⟨ n ⟩ cs) = optimize-subPtr n cs
+  optimize (+⟨ n ⟩ cs) = optimize-addVal n cs
+  optimize (-⟨ n ⟩ cs) = optimize-subVal n cs
   optimize (· cs) = · optimize cs
   optimize (, cs) = , optimize cs
   optimize ([ cs ] cs₁) = [ optimize cs ] optimize cs₁
-  optimize (merge-`> m n cs i) = optimize-`> (m +₁ n) cs
-  optimize (merge-`< m n cs i) = optimize-`< (m +₁ n) cs
-  optimize (merge-`+ m n cs i) = optimize-`+ (m +₁ n) cs
-  optimize (merge-`- m n cs i) = optimize-`- (m +₁ n) cs
+  optimize (merge-addPtr m n cs i) = optimize-addPtr (m +₁ n) cs
+  optimize (merge-subPtr m n cs i) = optimize-subPtr (m +₁ n) cs
+  optimize (merge-addVal m n cs i) = optimize-addVal (m +₁ n) cs
+  optimize (merge-subVal m n cs i) = optimize-subVal (m +₁ n) cs
   optimize (trunc cs cs₁ p q i j) =
     trunc _ _ (cong optimize p) (cong optimize q) i j
 
-  optimize-`> : ℕ₊₁ → Opts → Opts
-  optimize-`> n □ = >⟨ n ⟩ □
-  optimize-`> n (>⟨ m ⟩ cs) = optimize-`> (n +₁ m) cs
-  optimize-`> n cs@(_ ∷ _) = >⟨ n ⟩ optimize cs
-  optimize-`> n (merge-`> m o cs i) = optimize-`> (+₁-assoc n m o (~ i)) cs
-  optimize-`> n (merge-`< m o cs i) = >⟨ n ⟩ optimize-`< (m +₁ o) cs
-  optimize-`> n (merge-`+ m o cs i) = >⟨ n ⟩ optimize-`+ (m +₁ o) cs
-  optimize-`> n (merge-`- m o cs i) = >⟨ n ⟩ optimize-`- (m +₁ o) cs
-  optimize-`> n (trunc cs cs₁ p q i j) =
-    trunc _ _ (cong (optimize-`> n) p) (cong (optimize-`> n) q) i j
+  optimize-addPtr : ℕ₊₁ → Opts → Opts
+  optimize-addPtr n □ = >⟨ n ⟩ □
+  optimize-addPtr n (>⟨ m ⟩ cs) = optimize-addPtr (n +₁ m) cs
+  optimize-addPtr n cs@(_ ∷ _) = >⟨ n ⟩ optimize cs
+  optimize-addPtr n (merge-addPtr m o cs i) = optimize-addPtr (+₁-assoc n m o (~ i)) cs
+  optimize-addPtr n (merge-subPtr m o cs i) = >⟨ n ⟩ optimize-subPtr (m +₁ o) cs
+  optimize-addPtr n (merge-addVal m o cs i) = >⟨ n ⟩ optimize-addVal (m +₁ o) cs
+  optimize-addPtr n (merge-subVal m o cs i) = >⟨ n ⟩ optimize-subVal (m +₁ o) cs
+  optimize-addPtr n (trunc cs cs₁ p q i j) =
+    trunc _ _ (cong (optimize-addPtr n) p) (cong (optimize-addPtr n) q) i j
 
-  optimize-`< : ℕ₊₁ → Opts → Opts
-  optimize-`< n □ = <⟨ n ⟩ □
-  optimize-`< n (<⟨ m ⟩ cs) = optimize-`< (n +₁ m) cs
-  optimize-`< n cs@(_ ∷ _) = <⟨ n ⟩ optimize cs
-  optimize-`< n (merge-`> m o cs i) = <⟨ n ⟩ optimize-`> (m +₁ o) cs
-  optimize-`< n (merge-`< m o cs i) = optimize-`< (+₁-assoc n m o (~ i)) cs
-  optimize-`< n (merge-`+ m o cs i) = <⟨ n ⟩ optimize-`+ (m +₁ o) cs
-  optimize-`< n (merge-`- m o cs i) = <⟨ n ⟩ optimize-`- (m +₁ o) cs
-  optimize-`< n (trunc cs cs₁ p q i j) =
-    trunc _ _ (cong (optimize-`< n) p) (cong (optimize-`< n) q) i j
+  optimize-subPtr : ℕ₊₁ → Opts → Opts
+  optimize-subPtr n □ = <⟨ n ⟩ □
+  optimize-subPtr n (<⟨ m ⟩ cs) = optimize-subPtr (n +₁ m) cs
+  optimize-subPtr n cs@(_ ∷ _) = <⟨ n ⟩ optimize cs
+  optimize-subPtr n (merge-addPtr m o cs i) = <⟨ n ⟩ optimize-addPtr (m +₁ o) cs
+  optimize-subPtr n (merge-subPtr m o cs i) = optimize-subPtr (+₁-assoc n m o (~ i)) cs
+  optimize-subPtr n (merge-addVal m o cs i) = <⟨ n ⟩ optimize-addVal (m +₁ o) cs
+  optimize-subPtr n (merge-subVal m o cs i) = <⟨ n ⟩ optimize-subVal (m +₁ o) cs
+  optimize-subPtr n (trunc cs cs₁ p q i j) =
+    trunc _ _ (cong (optimize-subPtr n) p) (cong (optimize-subPtr n) q) i j
 
-  optimize-`+ : ℕ₊₁ → Opts → Opts
-  optimize-`+ n □ = +⟨ n ⟩ □
-  optimize-`+ n (+⟨ m ⟩ cs) = optimize-`+ (n +₁ m) cs
-  optimize-`+ n cs@(_ ∷ _) = +⟨ n ⟩ optimize cs
-  optimize-`+ n (merge-`> m o cs i) = +⟨ n ⟩ optimize-`> (m +₁ o) cs
-  optimize-`+ n (merge-`< m o cs i) = +⟨ n ⟩ optimize-`< (m +₁ o) cs
-  optimize-`+ n (merge-`+ m o cs i) = optimize-`+ (+₁-assoc n m o (~ i)) cs
-  optimize-`+ n (merge-`- m o cs i) = +⟨ n ⟩ optimize-`- (m +₁ o) cs
-  optimize-`+ n (trunc cs cs₁ p q i j) =
-    trunc _ _ (cong (optimize-`+ n) p) (cong (optimize-`+ n) q) i j
+  optimize-addVal : ℕ₊₁ → Opts → Opts
+  optimize-addVal n □ = +⟨ n ⟩ □
+  optimize-addVal n (+⟨ m ⟩ cs) = optimize-addVal (n +₁ m) cs
+  optimize-addVal n cs@(_ ∷ _) = +⟨ n ⟩ optimize cs
+  optimize-addVal n (merge-addPtr m o cs i) = +⟨ n ⟩ optimize-addPtr (m +₁ o) cs
+  optimize-addVal n (merge-subPtr m o cs i) = +⟨ n ⟩ optimize-subPtr (m +₁ o) cs
+  optimize-addVal n (merge-addVal m o cs i) = optimize-addVal (+₁-assoc n m o (~ i)) cs
+  optimize-addVal n (merge-subVal m o cs i) = +⟨ n ⟩ optimize-subVal (m +₁ o) cs
+  optimize-addVal n (trunc cs cs₁ p q i j) =
+    trunc _ _ (cong (optimize-addVal n) p) (cong (optimize-addVal n) q) i j
 
-  optimize-`- : ℕ₊₁ → Opts → Opts
-  optimize-`- n □ = -⟨ n ⟩ □
-  optimize-`- n (-⟨ m ⟩ cs) = optimize-`- (n +₁ m) cs
-  optimize-`- n cs@(_ ∷ _) = -⟨ n ⟩ optimize cs
-  optimize-`- n (merge-`> m o cs i) = -⟨ n ⟩ optimize-`> (m +₁ o) cs
-  optimize-`- n (merge-`< m o cs i) = -⟨ n ⟩ optimize-`< (m +₁ o) cs
-  optimize-`- n (merge-`+ m o cs i) = -⟨ n ⟩ optimize-`+ (m +₁ o) cs
-  optimize-`- n (merge-`- m o cs i) = optimize-`- (+₁-assoc n m o (~ i)) cs
-  optimize-`- n (trunc cs cs₁ p q i j) =
-    trunc _ _ (cong (optimize-`- n) p) (cong (optimize-`- n) q) i j
+  optimize-subVal : ℕ₊₁ → Opts → Opts
+  optimize-subVal n □ = -⟨ n ⟩ □
+  optimize-subVal n (-⟨ m ⟩ cs) = optimize-subVal (n +₁ m) cs
+  optimize-subVal n cs@(_ ∷ _) = -⟨ n ⟩ optimize cs
+  optimize-subVal n (merge-addPtr m o cs i) = -⟨ n ⟩ optimize-addPtr (m +₁ o) cs
+  optimize-subVal n (merge-subPtr m o cs i) = -⟨ n ⟩ optimize-subPtr (m +₁ o) cs
+  optimize-subVal n (merge-addVal m o cs i) = -⟨ n ⟩ optimize-addVal (m +₁ o) cs
+  optimize-subVal n (merge-subVal m o cs i) = optimize-subVal (+₁-assoc n m o (~ i)) cs
+  optimize-subVal n (trunc cs cs₁ p q i j) =
+    trunc _ _ (cong (optimize-subVal n) p) (cong (optimize-subVal n) q) i j
 
 mutual
 
   optimize≡id : ∀ cs → optimize cs ≡ cs
   optimize≡id □ = refl
-  optimize≡id (>⟨ n ⟩ cs) = optimize-`>≡>⟨-⟩ n cs
-  optimize≡id (<⟨ n ⟩ cs) = optimize-`<≡<⟨-⟩ n cs
-  optimize≡id (+⟨ n ⟩ cs) = optimize-`+≡+⟨-⟩ n cs
-  optimize≡id (-⟨ n ⟩ cs) = optimize-`-≡-⟨-⟩ n cs
+  optimize≡id (>⟨ n ⟩ cs) = optimize-addPtr≡>⟨-⟩ n cs
+  optimize≡id (<⟨ n ⟩ cs) = optimize-subPtr≡<⟨-⟩ n cs
+  optimize≡id (+⟨ n ⟩ cs) = optimize-addVal≡+⟨-⟩ n cs
+  optimize≡id (-⟨ n ⟩ cs) = optimize-subVal≡-⟨-⟩ n cs
   optimize≡id (· cs) = cong ·_ (optimize≡id cs)
   optimize≡id (, cs) = cong ,_ (optimize≡id cs)
   optimize≡id ([ cs ] cs₁) = cong₂ [_]_ (optimize≡id cs) (optimize≡id cs₁)
-  optimize≡id (merge-`> m n cs i) = isSet→isSet' trunc
-    (optimize-`>≡>⟨-⟩ (m +₁ n) cs ∙ sym (merge-`> m n cs))
-    (optimize-`>≡>⟨-⟩ (m +₁ n) cs)
-    (cong optimize (merge-`> m n cs))
-    (merge-`> m n cs)
+  optimize≡id (merge-addPtr m n cs i) = isSet→isSet' trunc
+    (optimize-addPtr≡>⟨-⟩ (m +₁ n) cs ∙ sym (merge-addPtr m n cs))
+    (optimize-addPtr≡>⟨-⟩ (m +₁ n) cs)
+    (cong optimize (merge-addPtr m n cs))
+    (merge-addPtr m n cs)
     i
-  optimize≡id (merge-`< m n cs i) = isSet→isSet' trunc
-    (optimize-`<≡<⟨-⟩ (m +₁ n) cs ∙ sym (merge-`< m n cs))
-    (optimize-`<≡<⟨-⟩ (m +₁ n) cs)
-    (cong optimize (merge-`< m n cs))
-    (merge-`< m n cs)
+  optimize≡id (merge-subPtr m n cs i) = isSet→isSet' trunc
+    (optimize-subPtr≡<⟨-⟩ (m +₁ n) cs ∙ sym (merge-subPtr m n cs))
+    (optimize-subPtr≡<⟨-⟩ (m +₁ n) cs)
+    (cong optimize (merge-subPtr m n cs))
+    (merge-subPtr m n cs)
     i
-  optimize≡id (merge-`+ m n cs i) = isSet→isSet' trunc
-    (optimize-`+≡+⟨-⟩ (m +₁ n) cs ∙ sym (merge-`+ m n cs))
-    (optimize-`+≡+⟨-⟩ (m +₁ n) cs)
-    (cong optimize (merge-`+ m n cs))
-    (merge-`+ m n cs)
+  optimize≡id (merge-addVal m n cs i) = isSet→isSet' trunc
+    (optimize-addVal≡+⟨-⟩ (m +₁ n) cs ∙ sym (merge-addVal m n cs))
+    (optimize-addVal≡+⟨-⟩ (m +₁ n) cs)
+    (cong optimize (merge-addVal m n cs))
+    (merge-addVal m n cs)
     i
-  optimize≡id (merge-`- m n cs i) = isSet→isSet' trunc
-    (optimize-`-≡-⟨-⟩ (m +₁ n) cs ∙ sym (merge-`- m n cs))
-    (optimize-`-≡-⟨-⟩ (m +₁ n) cs)
-    (cong optimize (merge-`- m n cs))
-    (merge-`- m n cs)
+  optimize≡id (merge-subVal m n cs i) = isSet→isSet' trunc
+    (optimize-subVal≡-⟨-⟩ (m +₁ n) cs ∙ sym (merge-subVal m n cs))
+    (optimize-subVal≡-⟨-⟩ (m +₁ n) cs)
+    (cong optimize (merge-subVal m n cs))
+    (merge-subVal m n cs)
     i
   optimize≡id (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
     (cong optimize≡id p)
@@ -463,171 +463,171 @@ mutual
     (trunc cs cs₁ p q)
     i j
 
-  optimize-`>≡>⟨-⟩ : ∀ n cs → optimize-`> n cs ≡ >⟨ n ⟩ cs
-  optimize-`>≡>⟨-⟩ n □ = refl
-  optimize-`>≡>⟨-⟩ n (>⟨ m ⟩ cs) = optimize-`>≡>⟨-⟩ (n +₁ m) cs ∙ sym (merge-`> n m cs)
-  optimize-`>≡>⟨-⟩ n (<⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-`<≡<⟨-⟩ m cs)
-  optimize-`>≡>⟨-⟩ n (+⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-`+≡+⟨-⟩ m cs)
-  optimize-`>≡>⟨-⟩ n (-⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-`-≡-⟨-⟩ m cs)
-  optimize-`>≡>⟨-⟩ n (· cs) = cong (λ cs → >⟨ n ⟩ · cs) (optimize≡id cs)
-  optimize-`>≡>⟨-⟩ n (, cs) = cong (λ cs → >⟨ n ⟩ , cs) (optimize≡id cs)
-  optimize-`>≡>⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → >⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
-  optimize-`>≡>⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    ((optimize-`>≡>⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`> (n +₁ m) o cs)) ∙ sym (merge-`> n m (>⟨ o ⟩ cs)))
-    (optimize-`>≡>⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`> n (m +₁ o) cs))
-    (cong (optimize-`> n) (merge-`> m o cs))
-    (cong >⟨ n ⟩_ (merge-`> m o cs))
+  optimize-addPtr≡>⟨-⟩ : ∀ n cs → optimize-addPtr n cs ≡ >⟨ n ⟩ cs
+  optimize-addPtr≡>⟨-⟩ n □ = refl
+  optimize-addPtr≡>⟨-⟩ n (>⟨ m ⟩ cs) = optimize-addPtr≡>⟨-⟩ (n +₁ m) cs ∙ sym (merge-addPtr n m cs)
+  optimize-addPtr≡>⟨-⟩ n (<⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-subPtr≡<⟨-⟩ m cs)
+  optimize-addPtr≡>⟨-⟩ n (+⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-addVal≡+⟨-⟩ m cs)
+  optimize-addPtr≡>⟨-⟩ n (-⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-subVal≡-⟨-⟩ m cs)
+  optimize-addPtr≡>⟨-⟩ n (· cs) = cong (λ cs → >⟨ n ⟩ · cs) (optimize≡id cs)
+  optimize-addPtr≡>⟨-⟩ n (, cs) = cong (λ cs → >⟨ n ⟩ , cs) (optimize≡id cs)
+  optimize-addPtr≡>⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → >⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
+  optimize-addPtr≡>⟨-⟩ n (merge-addPtr m o cs i) = isSet→isSet' trunc
+    ((optimize-addPtr≡>⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-addPtr (n +₁ m) o cs)) ∙ sym (merge-addPtr n m (>⟨ o ⟩ cs)))
+    (optimize-addPtr≡>⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-addPtr n (m +₁ o) cs))
+    (cong (optimize-addPtr n) (merge-addPtr m o cs))
+    (cong >⟨ n ⟩_ (merge-addPtr m o cs))
     i
-  optimize-`>≡>⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    (λ j → >⟨ n ⟩ (optimize-`<≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-`< m o cs)) j)
-    (cong >⟨ n ⟩_ (optimize-`<≡<⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`> n) (merge-`< m o cs))
-    (cong >⟨ n ⟩_ (merge-`< m o cs))
+  optimize-addPtr≡>⟨-⟩ n (merge-subPtr m o cs i) = isSet→isSet' trunc
+    (λ j → >⟨ n ⟩ (optimize-subPtr≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-subPtr m o cs)) j)
+    (cong >⟨ n ⟩_ (optimize-subPtr≡<⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-addPtr n) (merge-subPtr m o cs))
+    (cong >⟨ n ⟩_ (merge-subPtr m o cs))
     i
-  optimize-`>≡>⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    (λ j → >⟨ n ⟩ (optimize-`+≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-`+ m o cs)) j)
-    (cong >⟨ n ⟩_ (optimize-`+≡+⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`> n) (merge-`+ m o cs))
-    (cong >⟨ n ⟩_ (merge-`+ m o cs))
+  optimize-addPtr≡>⟨-⟩ n (merge-addVal m o cs i) = isSet→isSet' trunc
+    (λ j → >⟨ n ⟩ (optimize-addVal≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-addVal m o cs)) j)
+    (cong >⟨ n ⟩_ (optimize-addVal≡+⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-addPtr n) (merge-addVal m o cs))
+    (cong >⟨ n ⟩_ (merge-addVal m o cs))
     i
-  optimize-`>≡>⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    (λ j → >⟨ n ⟩ (optimize-`-≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-`- m o cs)) j)
-    (cong >⟨ n ⟩_ (optimize-`-≡-⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`> n) (merge-`- m o cs))
-    (cong >⟨ n ⟩_ (merge-`- m o cs))
+  optimize-addPtr≡>⟨-⟩ n (merge-subVal m o cs i) = isSet→isSet' trunc
+    (λ j → >⟨ n ⟩ (optimize-subVal≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-subVal m o cs)) j)
+    (cong >⟨ n ⟩_ (optimize-subVal≡-⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-addPtr n) (merge-subVal m o cs))
+    (cong >⟨ n ⟩_ (merge-subVal m o cs))
     i
-  optimize-`>≡>⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (cong (optimize-`>≡>⟨-⟩ n) p)
-    (cong (optimize-`>≡>⟨-⟩ n) q)
-    (λ k → optimize-`>≡>⟨-⟩ n cs)
-    (λ k → optimize-`>≡>⟨-⟩ n cs₁)
-    (λ k l → optimize-`> n (trunc cs cs₁ p q k l))
+  optimize-addPtr≡>⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
+    (cong (optimize-addPtr≡>⟨-⟩ n) p)
+    (cong (optimize-addPtr≡>⟨-⟩ n) q)
+    (λ k → optimize-addPtr≡>⟨-⟩ n cs)
+    (λ k → optimize-addPtr≡>⟨-⟩ n cs₁)
+    (λ k l → optimize-addPtr n (trunc cs cs₁ p q k l))
     (λ k l → >⟨ n ⟩ trunc cs cs₁ p q k l)
     i j
 
-  optimize-`<≡<⟨-⟩ : ∀ n cs → optimize-`< n cs ≡ <⟨ n ⟩ cs
-  optimize-`<≡<⟨-⟩ n □ = refl
-  optimize-`<≡<⟨-⟩ n (>⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-`>≡>⟨-⟩ m cs)
-  optimize-`<≡<⟨-⟩ n (<⟨ m ⟩ cs) = optimize-`<≡<⟨-⟩ (n +₁ m) cs ∙ sym (merge-`< n m cs)
-  optimize-`<≡<⟨-⟩ n (+⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-`+≡+⟨-⟩ m cs)
-  optimize-`<≡<⟨-⟩ n (-⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-`-≡-⟨-⟩ m cs)
-  optimize-`<≡<⟨-⟩ n (· cs) = cong (λ cs → <⟨ n ⟩ · cs) (optimize≡id cs)
-  optimize-`<≡<⟨-⟩ n (, cs) = cong (λ cs → <⟨ n ⟩ , cs) (optimize≡id cs)
-  optimize-`<≡<⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → <⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
-  optimize-`<≡<⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    (λ j → <⟨ n ⟩ (optimize-`>≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-`> m o cs)) j)
-    (cong <⟨ n ⟩_ (optimize-`>≡>⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`< n) (merge-`> m o cs))
-    (cong <⟨ n ⟩_ (merge-`> m o cs))
+  optimize-subPtr≡<⟨-⟩ : ∀ n cs → optimize-subPtr n cs ≡ <⟨ n ⟩ cs
+  optimize-subPtr≡<⟨-⟩ n □ = refl
+  optimize-subPtr≡<⟨-⟩ n (>⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-addPtr≡>⟨-⟩ m cs)
+  optimize-subPtr≡<⟨-⟩ n (<⟨ m ⟩ cs) = optimize-subPtr≡<⟨-⟩ (n +₁ m) cs ∙ sym (merge-subPtr n m cs)
+  optimize-subPtr≡<⟨-⟩ n (+⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-addVal≡+⟨-⟩ m cs)
+  optimize-subPtr≡<⟨-⟩ n (-⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-subVal≡-⟨-⟩ m cs)
+  optimize-subPtr≡<⟨-⟩ n (· cs) = cong (λ cs → <⟨ n ⟩ · cs) (optimize≡id cs)
+  optimize-subPtr≡<⟨-⟩ n (, cs) = cong (λ cs → <⟨ n ⟩ , cs) (optimize≡id cs)
+  optimize-subPtr≡<⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → <⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
+  optimize-subPtr≡<⟨-⟩ n (merge-addPtr m o cs i) = isSet→isSet' trunc
+    (λ j → <⟨ n ⟩ (optimize-addPtr≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-addPtr m o cs)) j)
+    (cong <⟨ n ⟩_ (optimize-addPtr≡>⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-subPtr n) (merge-addPtr m o cs))
+    (cong <⟨ n ⟩_ (merge-addPtr m o cs))
     i
-  optimize-`<≡<⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    ((optimize-`<≡<⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`< (n +₁ m) o cs)) ∙ sym (merge-`< n m (<⟨ o ⟩ cs)))
-    (optimize-`<≡<⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`< n (m +₁ o) cs))
-    (cong (optimize-`< n) (merge-`< m o cs))
-    (cong <⟨ n ⟩_ (merge-`< m o cs))
+  optimize-subPtr≡<⟨-⟩ n (merge-subPtr m o cs i) = isSet→isSet' trunc
+    ((optimize-subPtr≡<⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-subPtr (n +₁ m) o cs)) ∙ sym (merge-subPtr n m (<⟨ o ⟩ cs)))
+    (optimize-subPtr≡<⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-subPtr n (m +₁ o) cs))
+    (cong (optimize-subPtr n) (merge-subPtr m o cs))
+    (cong <⟨ n ⟩_ (merge-subPtr m o cs))
     i
-  optimize-`<≡<⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    (λ j → <⟨ n ⟩ (optimize-`+≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-`+ m o cs)) j)
-    (cong <⟨ n ⟩_ (optimize-`+≡+⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`< n) (merge-`+ m o cs))
-    (cong <⟨ n ⟩_ (merge-`+ m o cs))
+  optimize-subPtr≡<⟨-⟩ n (merge-addVal m o cs i) = isSet→isSet' trunc
+    (λ j → <⟨ n ⟩ (optimize-addVal≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-addVal m o cs)) j)
+    (cong <⟨ n ⟩_ (optimize-addVal≡+⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-subPtr n) (merge-addVal m o cs))
+    (cong <⟨ n ⟩_ (merge-addVal m o cs))
     i
-  optimize-`<≡<⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    (λ j → <⟨ n ⟩ (optimize-`-≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-`- m o cs)) j)
-    (cong <⟨ n ⟩_ (optimize-`-≡-⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`< n) (merge-`- m o cs))
-    (cong <⟨ n ⟩_ (merge-`- m o cs))
+  optimize-subPtr≡<⟨-⟩ n (merge-subVal m o cs i) = isSet→isSet' trunc
+    (λ j → <⟨ n ⟩ (optimize-subVal≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-subVal m o cs)) j)
+    (cong <⟨ n ⟩_ (optimize-subVal≡-⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-subPtr n) (merge-subVal m o cs))
+    (cong <⟨ n ⟩_ (merge-subVal m o cs))
     i
-  optimize-`<≡<⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (cong (optimize-`<≡<⟨-⟩ n) p)
-    (cong (optimize-`<≡<⟨-⟩ n) q)
-    (λ k → optimize-`<≡<⟨-⟩ n cs)
-    (λ k → optimize-`<≡<⟨-⟩ n cs₁)
-    (λ k l → optimize-`< n (trunc cs cs₁ p q k l))
+  optimize-subPtr≡<⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
+    (cong (optimize-subPtr≡<⟨-⟩ n) p)
+    (cong (optimize-subPtr≡<⟨-⟩ n) q)
+    (λ k → optimize-subPtr≡<⟨-⟩ n cs)
+    (λ k → optimize-subPtr≡<⟨-⟩ n cs₁)
+    (λ k l → optimize-subPtr n (trunc cs cs₁ p q k l))
     (λ k l → <⟨ n ⟩ trunc cs cs₁ p q k l)
     i j
 
-  optimize-`+≡+⟨-⟩ : ∀ n cs → optimize-`+ n cs ≡ +⟨ n ⟩ cs
-  optimize-`+≡+⟨-⟩ n □ = refl
-  optimize-`+≡+⟨-⟩ n (>⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-`>≡>⟨-⟩ m cs)
-  optimize-`+≡+⟨-⟩ n (<⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-`<≡<⟨-⟩ m cs)
-  optimize-`+≡+⟨-⟩ n (+⟨ m ⟩ cs) = optimize-`+≡+⟨-⟩ (n +₁ m) cs ∙ sym (merge-`+ n m cs)
-  optimize-`+≡+⟨-⟩ n (-⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-`-≡-⟨-⟩ m cs)
-  optimize-`+≡+⟨-⟩ n (· cs) = cong (λ cs → +⟨ n ⟩ · cs) (optimize≡id cs)
-  optimize-`+≡+⟨-⟩ n (, cs) = cong (λ cs → +⟨ n ⟩ , cs) (optimize≡id cs)
-  optimize-`+≡+⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → +⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
-  optimize-`+≡+⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    (λ j → +⟨ n ⟩ (optimize-`>≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-`> m o cs)) j)
-    (cong +⟨ n ⟩_ (optimize-`>≡>⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`+ n) (merge-`> m o cs))
-    (cong +⟨ n ⟩_ (merge-`> m o cs))
+  optimize-addVal≡+⟨-⟩ : ∀ n cs → optimize-addVal n cs ≡ +⟨ n ⟩ cs
+  optimize-addVal≡+⟨-⟩ n □ = refl
+  optimize-addVal≡+⟨-⟩ n (>⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-addPtr≡>⟨-⟩ m cs)
+  optimize-addVal≡+⟨-⟩ n (<⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-subPtr≡<⟨-⟩ m cs)
+  optimize-addVal≡+⟨-⟩ n (+⟨ m ⟩ cs) = optimize-addVal≡+⟨-⟩ (n +₁ m) cs ∙ sym (merge-addVal n m cs)
+  optimize-addVal≡+⟨-⟩ n (-⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-subVal≡-⟨-⟩ m cs)
+  optimize-addVal≡+⟨-⟩ n (· cs) = cong (λ cs → +⟨ n ⟩ · cs) (optimize≡id cs)
+  optimize-addVal≡+⟨-⟩ n (, cs) = cong (λ cs → +⟨ n ⟩ , cs) (optimize≡id cs)
+  optimize-addVal≡+⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → +⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
+  optimize-addVal≡+⟨-⟩ n (merge-addPtr m o cs i) = isSet→isSet' trunc
+    (λ j → +⟨ n ⟩ (optimize-addPtr≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-addPtr m o cs)) j)
+    (cong +⟨ n ⟩_ (optimize-addPtr≡>⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-addVal n) (merge-addPtr m o cs))
+    (cong +⟨ n ⟩_ (merge-addPtr m o cs))
     i
-  optimize-`+≡+⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    (λ j → +⟨ n ⟩ (optimize-`<≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-`< m o cs)) j)
-    (cong +⟨ n ⟩_ (optimize-`<≡<⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`+ n) (merge-`< m o cs))
-    (cong +⟨ n ⟩_ (merge-`< m o cs))
+  optimize-addVal≡+⟨-⟩ n (merge-subPtr m o cs i) = isSet→isSet' trunc
+    (λ j → +⟨ n ⟩ (optimize-subPtr≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-subPtr m o cs)) j)
+    (cong +⟨ n ⟩_ (optimize-subPtr≡<⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-addVal n) (merge-subPtr m o cs))
+    (cong +⟨ n ⟩_ (merge-subPtr m o cs))
     i
-  optimize-`+≡+⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    ((optimize-`+≡+⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`+ (n +₁ m) o cs)) ∙ sym (merge-`+ n m (+⟨ o ⟩ cs)))
-    (optimize-`+≡+⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`+ n (m +₁ o) cs))
-    (cong (optimize-`+ n) (merge-`+ m o cs))
-    (cong +⟨ n ⟩_ (merge-`+ m o cs))
+  optimize-addVal≡+⟨-⟩ n (merge-addVal m o cs i) = isSet→isSet' trunc
+    ((optimize-addVal≡+⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-addVal (n +₁ m) o cs)) ∙ sym (merge-addVal n m (+⟨ o ⟩ cs)))
+    (optimize-addVal≡+⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-addVal n (m +₁ o) cs))
+    (cong (optimize-addVal n) (merge-addVal m o cs))
+    (cong +⟨ n ⟩_ (merge-addVal m o cs))
     i
-  optimize-`+≡+⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    (λ j → +⟨ n ⟩ (optimize-`-≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-`- m o cs)) j)
-    (cong +⟨ n ⟩_ (optimize-`-≡-⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`+ n) (merge-`- m o cs))
-    (cong +⟨ n ⟩_ (merge-`- m o cs))
+  optimize-addVal≡+⟨-⟩ n (merge-subVal m o cs i) = isSet→isSet' trunc
+    (λ j → +⟨ n ⟩ (optimize-subVal≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-subVal m o cs)) j)
+    (cong +⟨ n ⟩_ (optimize-subVal≡-⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-addVal n) (merge-subVal m o cs))
+    (cong +⟨ n ⟩_ (merge-subVal m o cs))
     i
-  optimize-`+≡+⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (cong (optimize-`+≡+⟨-⟩ n) p)
-    (cong (optimize-`+≡+⟨-⟩ n) q)
-    (λ k → optimize-`+≡+⟨-⟩ n cs)
-    (λ k → optimize-`+≡+⟨-⟩ n cs₁)
-    (λ k l → optimize-`+ n (trunc cs cs₁ p q k l))
+  optimize-addVal≡+⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
+    (cong (optimize-addVal≡+⟨-⟩ n) p)
+    (cong (optimize-addVal≡+⟨-⟩ n) q)
+    (λ k → optimize-addVal≡+⟨-⟩ n cs)
+    (λ k → optimize-addVal≡+⟨-⟩ n cs₁)
+    (λ k l → optimize-addVal n (trunc cs cs₁ p q k l))
     (λ k l → +⟨ n ⟩ trunc cs cs₁ p q k l)
     i j
 
-  optimize-`-≡-⟨-⟩ : ∀ n cs → optimize-`- n cs ≡ -⟨ n ⟩ cs
-  optimize-`-≡-⟨-⟩ n □ = refl
-  optimize-`-≡-⟨-⟩ n (>⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-`>≡>⟨-⟩ m cs)
-  optimize-`-≡-⟨-⟩ n (<⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-`<≡<⟨-⟩ m cs)
-  optimize-`-≡-⟨-⟩ n (+⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-`+≡+⟨-⟩ m cs)
-  optimize-`-≡-⟨-⟩ n (-⟨ m ⟩ cs) = optimize-`-≡-⟨-⟩ (n +₁ m) cs ∙ sym (merge-`- n m cs)
-  optimize-`-≡-⟨-⟩ n (· cs) = cong (λ cs → -⟨ n ⟩ · cs) (optimize≡id cs)
-  optimize-`-≡-⟨-⟩ n (, cs) = cong (λ cs → -⟨ n ⟩ , cs) (optimize≡id cs)
-  optimize-`-≡-⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → -⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
-  optimize-`-≡-⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    (λ j → -⟨ n ⟩ (optimize-`>≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-`> m o cs)) j)
-    (cong -⟨ n ⟩_ (optimize-`>≡>⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`- n) (merge-`> m o cs))
-    (cong -⟨ n ⟩_ (merge-`> m o cs))
+  optimize-subVal≡-⟨-⟩ : ∀ n cs → optimize-subVal n cs ≡ -⟨ n ⟩ cs
+  optimize-subVal≡-⟨-⟩ n □ = refl
+  optimize-subVal≡-⟨-⟩ n (>⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-addPtr≡>⟨-⟩ m cs)
+  optimize-subVal≡-⟨-⟩ n (<⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-subPtr≡<⟨-⟩ m cs)
+  optimize-subVal≡-⟨-⟩ n (+⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-addVal≡+⟨-⟩ m cs)
+  optimize-subVal≡-⟨-⟩ n (-⟨ m ⟩ cs) = optimize-subVal≡-⟨-⟩ (n +₁ m) cs ∙ sym (merge-subVal n m cs)
+  optimize-subVal≡-⟨-⟩ n (· cs) = cong (λ cs → -⟨ n ⟩ · cs) (optimize≡id cs)
+  optimize-subVal≡-⟨-⟩ n (, cs) = cong (λ cs → -⟨ n ⟩ , cs) (optimize≡id cs)
+  optimize-subVal≡-⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → -⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
+  optimize-subVal≡-⟨-⟩ n (merge-addPtr m o cs i) = isSet→isSet' trunc
+    (λ j → -⟨ n ⟩ (optimize-addPtr≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-addPtr m o cs)) j)
+    (cong -⟨ n ⟩_ (optimize-addPtr≡>⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-subVal n) (merge-addPtr m o cs))
+    (cong -⟨ n ⟩_ (merge-addPtr m o cs))
     i
-  optimize-`-≡-⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    (λ j → -⟨ n ⟩ (optimize-`<≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-`< m o cs)) j)
-    (cong -⟨ n ⟩_ (optimize-`<≡<⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`- n) (merge-`< m o cs))
-    (cong -⟨ n ⟩_ (merge-`< m o cs))
+  optimize-subVal≡-⟨-⟩ n (merge-subPtr m o cs i) = isSet→isSet' trunc
+    (λ j → -⟨ n ⟩ (optimize-subPtr≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-subPtr m o cs)) j)
+    (cong -⟨ n ⟩_ (optimize-subPtr≡<⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-subVal n) (merge-subPtr m o cs))
+    (cong -⟨ n ⟩_ (merge-subPtr m o cs))
     i
-  optimize-`-≡-⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    (λ j → -⟨ n ⟩ (optimize-`+≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-`+ m o cs)) j)
-    (cong -⟨ n ⟩_ (optimize-`+≡+⟨-⟩ (m +₁ o) cs))
-    (cong (optimize-`- n) (merge-`+ m o cs))
-    (cong -⟨ n ⟩_ (merge-`+ m o cs))
+  optimize-subVal≡-⟨-⟩ n (merge-addVal m o cs i) = isSet→isSet' trunc
+    (λ j → -⟨ n ⟩ (optimize-addVal≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-addVal m o cs)) j)
+    (cong -⟨ n ⟩_ (optimize-addVal≡+⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-subVal n) (merge-addVal m o cs))
+    (cong -⟨ n ⟩_ (merge-addVal m o cs))
     i
-  optimize-`-≡-⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    ((optimize-`-≡-⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`- (n +₁ m) o cs)) ∙ sym (merge-`- n m (-⟨ o ⟩ cs)))
-    (optimize-`-≡-⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`- n (m +₁ o) cs))
-    (cong (optimize-`- n) (merge-`- m o cs))
-    (cong -⟨ n ⟩_ (merge-`- m o cs))
+  optimize-subVal≡-⟨-⟩ n (merge-subVal m o cs i) = isSet→isSet' trunc
+    ((optimize-subVal≡-⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-subVal (n +₁ m) o cs)) ∙ sym (merge-subVal n m (-⟨ o ⟩ cs)))
+    (optimize-subVal≡-⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-subVal n (m +₁ o) cs))
+    (cong (optimize-subVal n) (merge-subVal m o cs))
+    (cong -⟨ n ⟩_ (merge-subVal m o cs))
     i
-  optimize-`-≡-⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (cong (optimize-`-≡-⟨-⟩ n) p)
-    (cong (optimize-`-≡-⟨-⟩ n) q)
-    (λ k → optimize-`-≡-⟨-⟩ n cs)
-    (λ k → optimize-`-≡-⟨-⟩ n cs₁)
-    (λ k l → optimize-`- n (trunc cs cs₁ p q k l))
+  optimize-subVal≡-⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
+    (cong (optimize-subVal≡-⟨-⟩ n) p)
+    (cong (optimize-subVal≡-⟨-⟩ n) q)
+    (λ k → optimize-subVal≡-⟨-⟩ n cs)
+    (λ k → optimize-subVal≡-⟨-⟩ n cs₁)
+    (λ k l → optimize-subVal n (trunc cs cs₁ p q k l))
     (λ k l → -⟨ n ⟩ trunc cs cs₁ p q k l)
     i j
 
