@@ -2,8 +2,9 @@
 
 module Brainfuck.Optimization where
 
-open import Cubical.Foundations.Everything
+open import Cubical.Foundations.Everything hiding ( empty )
 open import Cubical.Data.Bool.Base using ( True; toWitness )
+open import Cubical.Data.Int as ℤ using ( ℤ; pos; negsuc )
 open import Cubical.Data.NatPlusOne.Base using ( ℕ₊₁; one; 1+_; 2+_; _+₁_ )
 open import Cubical.Data.NatPlusOne.Properties as ℕ using ( +₁-assoc )
 open import Cubical.Data.List.Base using ( List; []; _∷_; _++_ )
@@ -13,6 +14,7 @@ open import Cubical.Relation.Nullary using ( Dec )
 open import Brainfuck.Syntax as Cmds hiding ( NoLoops; noLoops? )
 open import Brainfuck.State
 import Brainfuck.SmallStep as Cmds
+open import Data.InfZipper
 
 private
   variable
@@ -429,51 +431,41 @@ mutual
   optimize≡id (, cs) = cong ,_ (optimize≡id cs)
   optimize≡id ([ cs ] cs₁) = cong₂ [_]_ (optimize≡id cs) (optimize≡id cs₁)
   optimize≡id (merge-`> m n cs i) = isSet→isSet' trunc
-    -- (optimize≡id (>⟨ m ⟩ >⟨ n ⟩ cs))
-    {!   !}
+    (optimize-`>≡>⟨-⟩ (m +₁ n) cs ∙ sym (merge-`> m n cs))
     (optimize-`>≡>⟨-⟩ (m +₁ n) cs)
-    (λ j → optimize (merge-`> m n cs j))
-    (λ j → merge-`> m n cs j)
+    (cong optimize (merge-`> m n cs))
+    (merge-`> m n cs)
     i
   optimize≡id (merge-`< m n cs i) = isSet→isSet' trunc
-    -- (optimize≡id (<⟨ m ⟩ <⟨ n ⟩ cs))
-    {!   !}
+    (optimize-`<≡<⟨-⟩ (m +₁ n) cs ∙ sym (merge-`< m n cs))
     (optimize-`<≡<⟨-⟩ (m +₁ n) cs)
-    (λ j → optimize (merge-`< m n cs j))
-    (λ j → merge-`< m n cs j)
+    (cong optimize (merge-`< m n cs))
+    (merge-`< m n cs)
     i
   optimize≡id (merge-`+ m n cs i) = isSet→isSet' trunc
-    -- (optimize≡id (+⟨ m ⟩ +⟨ n ⟩ cs))
-    {!   !}
+    (optimize-`+≡+⟨-⟩ (m +₁ n) cs ∙ sym (merge-`+ m n cs))
     (optimize-`+≡+⟨-⟩ (m +₁ n) cs)
-    (λ j → optimize (merge-`+ m n cs j))
-    (λ j → merge-`+ m n cs j)
+    (cong optimize (merge-`+ m n cs))
+    (merge-`+ m n cs)
     i
   optimize≡id (merge-`- m n cs i) = isSet→isSet' trunc
-    -- (optimize≡id (-⟨ m ⟩ -⟨ n ⟩ cs))
-    {!   !}
+    (optimize-`-≡-⟨-⟩ (m +₁ n) cs ∙ sym (merge-`- m n cs))
     (optimize-`-≡-⟨-⟩ (m +₁ n) cs)
-    (λ j → optimize (merge-`- m n cs j))
-    (λ j → merge-`- m n cs j)
+    (cong optimize (merge-`- m n cs))
+    (merge-`- m n cs)
     i
   optimize≡id (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (λ k → optimize≡id (p k))
-    (λ k → optimize≡id (q k))
+    (cong optimize≡id p)
+    (cong optimize≡id q)
     (λ k → optimize≡id cs)
     (λ k → optimize≡id cs₁)
     (λ k l → optimize (trunc cs cs₁ p q k l))
-    (λ k l → trunc cs cs₁ p q k l)
+    (trunc cs cs₁ p q)
     i j
 
   optimize-`>≡>⟨-⟩ : ∀ n cs → optimize-`> n cs ≡ >⟨ n ⟩ cs
   optimize-`>≡>⟨-⟩ n □ = refl
-  optimize-`>≡>⟨-⟩ n (>⟨ m ⟩ cs) =
-      optimize-`> (n +₁ m) cs
-    ≡⟨ optimize-`>≡>⟨-⟩ (n +₁ m) cs ⟩
-      >⟨ n +₁ m ⟩ cs
-    ≡⟨ sym (merge-`> n m cs) ⟩
-      >⟨ n ⟩ >⟨ m ⟩ cs
-    ∎
+  optimize-`>≡>⟨-⟩ n (>⟨ m ⟩ cs) = optimize-`>≡>⟨-⟩ (n +₁ m) cs ∙ sym (merge-`> n m cs)
   optimize-`>≡>⟨-⟩ n (<⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-`<≡<⟨-⟩ m cs)
   optimize-`>≡>⟨-⟩ n (+⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-`+≡+⟨-⟩ m cs)
   optimize-`>≡>⟨-⟩ n (-⟨ m ⟩ cs) = cong >⟨ n ⟩_ (optimize-`-≡-⟨-⟩ m cs)
@@ -481,40 +473,32 @@ mutual
   optimize-`>≡>⟨-⟩ n (, cs) = cong (λ cs → >⟨ n ⟩ , cs) (optimize≡id cs)
   optimize-`>≡>⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → >⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
   optimize-`>≡>⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    -- (optimize-`>≡>⟨-⟩ n (>⟨ m ⟩ >⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`>≡>⟨-⟩ n (>⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`> n (merge-`> m o cs j))
-    (λ j → >⟨ n ⟩ merge-`> m o cs j)
+    ((optimize-`>≡>⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`> (n +₁ m) o cs)) ∙ sym (merge-`> n m (>⟨ o ⟩ cs)))
+    (optimize-`>≡>⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`> n (m +₁ o) cs))
+    (cong (optimize-`> n) (merge-`> m o cs))
+    (cong >⟨ n ⟩_ (merge-`> m o cs))
     i
   optimize-`>≡>⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    -- (optimize-`>≡>⟨-⟩ n (<⟨ m ⟩ <⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`>≡>⟨-⟩ n (<⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`> n (merge-`< m o cs j))
-    (λ j → >⟨ n ⟩ merge-`< m o cs j)
+    (λ j → >⟨ n ⟩ (optimize-`<≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-`< m o cs)) j)
+    (cong >⟨ n ⟩_ (optimize-`<≡<⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`> n) (merge-`< m o cs))
+    (cong >⟨ n ⟩_ (merge-`< m o cs))
     i
   optimize-`>≡>⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    -- (optimize-`>≡>⟨-⟩ n (+⟨ m ⟩ +⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`>≡>⟨-⟩ n (+⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`> n (merge-`+ m o cs j))
-    (λ j → >⟨ n ⟩ merge-`+ m o cs j)
+    (λ j → >⟨ n ⟩ (optimize-`+≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-`+ m o cs)) j)
+    (cong >⟨ n ⟩_ (optimize-`+≡+⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`> n) (merge-`+ m o cs))
+    (cong >⟨ n ⟩_ (merge-`+ m o cs))
     i
   optimize-`>≡>⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    -- (optimize-`>≡>⟨-⟩ n (-⟨ m ⟩ -⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`>≡>⟨-⟩ n (-⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`> n (merge-`- m o cs j))
-    (λ j → >⟨ n ⟩ merge-`- m o cs j)
+    (λ j → >⟨ n ⟩ (optimize-`-≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-`- m o cs)) j)
+    (cong >⟨ n ⟩_ (optimize-`-≡-⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`> n) (merge-`- m o cs))
+    (cong >⟨ n ⟩_ (merge-`- m o cs))
     i
   optimize-`>≡>⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (λ k → optimize-`>≡>⟨-⟩ n (p k))
-    (λ k → optimize-`>≡>⟨-⟩ n (q k))
+    (cong (optimize-`>≡>⟨-⟩ n) p)
+    (cong (optimize-`>≡>⟨-⟩ n) q)
     (λ k → optimize-`>≡>⟨-⟩ n cs)
     (λ k → optimize-`>≡>⟨-⟩ n cs₁)
     (λ k l → optimize-`> n (trunc cs cs₁ p q k l))
@@ -524,53 +508,39 @@ mutual
   optimize-`<≡<⟨-⟩ : ∀ n cs → optimize-`< n cs ≡ <⟨ n ⟩ cs
   optimize-`<≡<⟨-⟩ n □ = refl
   optimize-`<≡<⟨-⟩ n (>⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-`>≡>⟨-⟩ m cs)
-  optimize-`<≡<⟨-⟩ n (<⟨ m ⟩ cs) =
-      optimize-`< (n +₁ m) cs
-    ≡⟨ optimize-`<≡<⟨-⟩ (n +₁ m) cs ⟩
-      <⟨ n +₁ m ⟩ cs
-    ≡⟨ sym (merge-`< n m cs) ⟩
-      <⟨ n ⟩ <⟨ m ⟩ cs
-    ∎
+  optimize-`<≡<⟨-⟩ n (<⟨ m ⟩ cs) = optimize-`<≡<⟨-⟩ (n +₁ m) cs ∙ sym (merge-`< n m cs)
   optimize-`<≡<⟨-⟩ n (+⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-`+≡+⟨-⟩ m cs)
   optimize-`<≡<⟨-⟩ n (-⟨ m ⟩ cs) = cong <⟨ n ⟩_ (optimize-`-≡-⟨-⟩ m cs)
   optimize-`<≡<⟨-⟩ n (· cs) = cong (λ cs → <⟨ n ⟩ · cs) (optimize≡id cs)
   optimize-`<≡<⟨-⟩ n (, cs) = cong (λ cs → <⟨ n ⟩ , cs) (optimize≡id cs)
   optimize-`<≡<⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → <⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
   optimize-`<≡<⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    -- (optimize-`<≡<⟨-⟩ n (>⟨ m ⟩ >⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`<≡<⟨-⟩ n (>⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`< n (merge-`> m o cs j))
-    (λ j → <⟨ n ⟩ merge-`> m o cs j)
+    (λ j → <⟨ n ⟩ (optimize-`>≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-`> m o cs)) j)
+    (cong <⟨ n ⟩_ (optimize-`>≡>⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`< n) (merge-`> m o cs))
+    (cong <⟨ n ⟩_ (merge-`> m o cs))
     i
   optimize-`<≡<⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    -- (optimize-`<≡<⟨-⟩ n (<⟨ m ⟩ <⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`<≡<⟨-⟩ n (<⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`< n (merge-`< m o cs j))
-    (λ j → <⟨ n ⟩ merge-`< m o cs j)
+    ((optimize-`<≡<⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`< (n +₁ m) o cs)) ∙ sym (merge-`< n m (<⟨ o ⟩ cs)))
+    (optimize-`<≡<⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`< n (m +₁ o) cs))
+    (cong (optimize-`< n) (merge-`< m o cs))
+    (cong <⟨ n ⟩_ (merge-`< m o cs))
     i
   optimize-`<≡<⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    -- (optimize-`<≡<⟨-⟩ n (+⟨ m ⟩ +⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`<≡<⟨-⟩ n (+⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`< n (merge-`+ m o cs j))
-    (λ j → <⟨ n ⟩ merge-`+ m o cs j)
+    (λ j → <⟨ n ⟩ (optimize-`+≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-`+ m o cs)) j)
+    (cong <⟨ n ⟩_ (optimize-`+≡+⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`< n) (merge-`+ m o cs))
+    (cong <⟨ n ⟩_ (merge-`+ m o cs))
     i
   optimize-`<≡<⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    -- (optimize-`<≡<⟨-⟩ n (-⟨ m ⟩ -⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`<≡<⟨-⟩ n (-⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`< n (merge-`- m o cs j))
-    (λ j → <⟨ n ⟩ merge-`- m o cs j)
+    (λ j → <⟨ n ⟩ (optimize-`-≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-`- m o cs)) j)
+    (cong <⟨ n ⟩_ (optimize-`-≡-⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`< n) (merge-`- m o cs))
+    (cong <⟨ n ⟩_ (merge-`- m o cs))
     i
   optimize-`<≡<⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (λ k → optimize-`<≡<⟨-⟩ n (p k))
-    (λ k → optimize-`<≡<⟨-⟩ n (q k))
+    (cong (optimize-`<≡<⟨-⟩ n) p)
+    (cong (optimize-`<≡<⟨-⟩ n) q)
     (λ k → optimize-`<≡<⟨-⟩ n cs)
     (λ k → optimize-`<≡<⟨-⟩ n cs₁)
     (λ k l → optimize-`< n (trunc cs cs₁ p q k l))
@@ -581,52 +551,38 @@ mutual
   optimize-`+≡+⟨-⟩ n □ = refl
   optimize-`+≡+⟨-⟩ n (>⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-`>≡>⟨-⟩ m cs)
   optimize-`+≡+⟨-⟩ n (<⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-`<≡<⟨-⟩ m cs)
-  optimize-`+≡+⟨-⟩ n (+⟨ m ⟩ cs) =
-      optimize-`+ (n +₁ m) cs
-    ≡⟨ optimize-`+≡+⟨-⟩ (n +₁ m) cs ⟩
-      +⟨ n +₁ m ⟩ cs
-    ≡⟨ sym (merge-`+ n m cs) ⟩
-      +⟨ n ⟩ +⟨ m ⟩ cs
-    ∎
+  optimize-`+≡+⟨-⟩ n (+⟨ m ⟩ cs) = optimize-`+≡+⟨-⟩ (n +₁ m) cs ∙ sym (merge-`+ n m cs)
   optimize-`+≡+⟨-⟩ n (-⟨ m ⟩ cs) = cong +⟨ n ⟩_ (optimize-`-≡-⟨-⟩ m cs)
   optimize-`+≡+⟨-⟩ n (· cs) = cong (λ cs → +⟨ n ⟩ · cs) (optimize≡id cs)
   optimize-`+≡+⟨-⟩ n (, cs) = cong (λ cs → +⟨ n ⟩ , cs) (optimize≡id cs)
   optimize-`+≡+⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → +⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
   optimize-`+≡+⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    -- (optimize-`+≡+⟨-⟩ n (>⟨ m ⟩ >⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`+≡+⟨-⟩ n (>⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`+ n (merge-`> m o cs j))
-    (λ j → +⟨ n ⟩ merge-`> m o cs j)
+    (λ j → +⟨ n ⟩ (optimize-`>≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-`> m o cs)) j)
+    (cong +⟨ n ⟩_ (optimize-`>≡>⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`+ n) (merge-`> m o cs))
+    (cong +⟨ n ⟩_ (merge-`> m o cs))
     i
   optimize-`+≡+⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    -- (optimize-`+≡+⟨-⟩ n (<⟨ m ⟩ <⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`+≡+⟨-⟩ n (<⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`+ n (merge-`< m o cs j))
-    (λ j → +⟨ n ⟩ merge-`< m o cs j)
+    (λ j → +⟨ n ⟩ (optimize-`<≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-`< m o cs)) j)
+    (cong +⟨ n ⟩_ (optimize-`<≡<⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`+ n) (merge-`< m o cs))
+    (cong +⟨ n ⟩_ (merge-`< m o cs))
     i
   optimize-`+≡+⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    -- (optimize-`+≡+⟨-⟩ n (+⟨ m ⟩ +⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`+≡+⟨-⟩ n (+⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`+ n (merge-`+ m o cs j))
-    (λ j → +⟨ n ⟩ merge-`+ m o cs j)
+    ((optimize-`+≡+⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`+ (n +₁ m) o cs)) ∙ sym (merge-`+ n m (+⟨ o ⟩ cs)))
+    (optimize-`+≡+⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`+ n (m +₁ o) cs))
+    (cong (optimize-`+ n) (merge-`+ m o cs))
+    (cong +⟨ n ⟩_ (merge-`+ m o cs))
     i
   optimize-`+≡+⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    -- (optimize-`+≡+⟨-⟩ n (-⟨ m ⟩ -⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`+≡+⟨-⟩ n (-⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`+ n (merge-`- m o cs j))
-    (λ j → +⟨ n ⟩ merge-`- m o cs j)
+    (λ j → +⟨ n ⟩ (optimize-`-≡-⟨-⟩ (m +₁ o) cs ∙ sym (merge-`- m o cs)) j)
+    (cong +⟨ n ⟩_ (optimize-`-≡-⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`+ n) (merge-`- m o cs))
+    (cong +⟨ n ⟩_ (merge-`- m o cs))
     i
   optimize-`+≡+⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (λ k → optimize-`+≡+⟨-⟩ n (p k))
-    (λ k → optimize-`+≡+⟨-⟩ n (q k))
+    (cong (optimize-`+≡+⟨-⟩ n) p)
+    (cong (optimize-`+≡+⟨-⟩ n) q)
     (λ k → optimize-`+≡+⟨-⟩ n cs)
     (λ k → optimize-`+≡+⟨-⟩ n cs₁)
     (λ k l → optimize-`+ n (trunc cs cs₁ p q k l))
@@ -638,51 +594,37 @@ mutual
   optimize-`-≡-⟨-⟩ n (>⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-`>≡>⟨-⟩ m cs)
   optimize-`-≡-⟨-⟩ n (<⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-`<≡<⟨-⟩ m cs)
   optimize-`-≡-⟨-⟩ n (+⟨ m ⟩ cs) = cong -⟨ n ⟩_ (optimize-`+≡+⟨-⟩ m cs)
-  optimize-`-≡-⟨-⟩ n (-⟨ m ⟩ cs) =
-      optimize-`- (n +₁ m) cs
-    ≡⟨ optimize-`-≡-⟨-⟩ (n +₁ m) cs ⟩
-      -⟨ n +₁ m ⟩ cs
-    ≡⟨ sym (merge-`- n m cs) ⟩
-      -⟨ n ⟩ -⟨ m ⟩ cs
-    ∎
+  optimize-`-≡-⟨-⟩ n (-⟨ m ⟩ cs) = optimize-`-≡-⟨-⟩ (n +₁ m) cs ∙ sym (merge-`- n m cs)
   optimize-`-≡-⟨-⟩ n (· cs) = cong (λ cs → -⟨ n ⟩ · cs) (optimize≡id cs)
   optimize-`-≡-⟨-⟩ n (, cs) = cong (λ cs → -⟨ n ⟩ , cs) (optimize≡id cs)
   optimize-`-≡-⟨-⟩ n ([ cs ] cs₁) = cong₂ (λ cs cs₁ → -⟨ n ⟩ [ cs ] cs₁) (optimize≡id cs) (optimize≡id cs₁)
   optimize-`-≡-⟨-⟩ n (merge-`> m o cs i) = isSet→isSet' trunc
-    -- (optimize-`-≡-⟨-⟩ n (>⟨ m ⟩ >⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`-≡-⟨-⟩ n (>⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`- n (merge-`> m o cs j))
-    (λ j → -⟨ n ⟩ merge-`> m o cs j)
+    (λ j → -⟨ n ⟩ (optimize-`>≡>⟨-⟩ (m +₁ o) cs ∙ sym (merge-`> m o cs)) j)
+    (cong -⟨ n ⟩_ (optimize-`>≡>⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`- n) (merge-`> m o cs))
+    (cong -⟨ n ⟩_ (merge-`> m o cs))
     i
   optimize-`-≡-⟨-⟩ n (merge-`< m o cs i) = isSet→isSet' trunc
-    -- (optimize-`-≡-⟨-⟩ n (<⟨ m ⟩ <⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`-≡-⟨-⟩ n (<⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`- n (merge-`< m o cs j))
-    (λ j → -⟨ n ⟩ merge-`< m o cs j)
+    (λ j → -⟨ n ⟩ (optimize-`<≡<⟨-⟩ (m +₁ o) cs ∙ sym (merge-`< m o cs)) j)
+    (cong -⟨ n ⟩_ (optimize-`<≡<⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`- n) (merge-`< m o cs))
+    (cong -⟨ n ⟩_ (merge-`< m o cs))
     i
   optimize-`-≡-⟨-⟩ n (merge-`+ m o cs i) = isSet→isSet' trunc
-    -- (optimize-`-≡-⟨-⟩ n (+⟨ m ⟩ +⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`-≡-⟨-⟩ n (+⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`- n (merge-`+ m o cs j))
-    (λ j → -⟨ n ⟩ merge-`+ m o cs j)
+    (λ j → -⟨ n ⟩ (optimize-`+≡+⟨-⟩ (m +₁ o) cs ∙ sym (merge-`+ m o cs)) j)
+    (cong -⟨ n ⟩_ (optimize-`+≡+⟨-⟩ (m +₁ o) cs))
+    (cong (optimize-`- n) (merge-`+ m o cs))
+    (cong -⟨ n ⟩_ (merge-`+ m o cs))
     i
   optimize-`-≡-⟨-⟩ n (merge-`- m o cs i) = isSet→isSet' trunc
-    -- (optimize-`-≡-⟨-⟩ n (-⟨ m ⟩ -⟨ o ⟩ cs))
-    {!   !}
-    -- (optimize-`-≡-⟨-⟩ n (-⟨ m +₁ o ⟩ cs))
-    {!   !}
-    (λ j → optimize-`- n (merge-`- m o cs j))
-    (λ j → -⟨ n ⟩ merge-`- m o cs j)
+    ((optimize-`-≡-⟨-⟩ ((n +₁ m) +₁ o) cs ∙ sym (merge-`- (n +₁ m) o cs)) ∙ sym (merge-`- n m (-⟨ o ⟩ cs)))
+    (optimize-`-≡-⟨-⟩ (n +₁ (m +₁ o)) cs ∙ sym (merge-`- n (m +₁ o) cs))
+    (cong (optimize-`- n) (merge-`- m o cs))
+    (cong -⟨ n ⟩_ (merge-`- m o cs))
     i
   optimize-`-≡-⟨-⟩ n (trunc cs cs₁ p q i j) = isGroupoid→isGroupoid' (isSet→isGroupoid trunc)
-    (λ k → optimize-`-≡-⟨-⟩ n (p k))
-    (λ k → optimize-`-≡-⟨-⟩ n (q k))
+    (cong (optimize-`-≡-⟨-⟩ n) p)
+    (cong (optimize-`-≡-⟨-⟩ n) q)
     (λ k → optimize-`-≡-⟨-⟩ n cs)
     (λ k → optimize-`-≡-⟨-⟩ n cs₁)
     (λ k l → optimize-`- n (trunc cs cs₁ p q k l))
@@ -706,6 +648,9 @@ _ : helloWorld′ ≡
     -⟨ 1+ 7  ⟩ ·    -- "d"
     -⟨ 1+ 66 ⟩ ·    -- "!"
     □
+_ = refl
+
+_ : transport (sym Cmds≡Opts) helloWorld′ ≡ helloWorld
 _ = refl
 
 --------------------------------------------------------------------------------
